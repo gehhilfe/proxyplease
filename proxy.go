@@ -30,9 +30,10 @@ type DialContext func(ctx context.Context, network, addr string) (net.Conn, erro
 
 // NewDialContext returns a DialContext that can be used in a variety of network types.
 // The function accepts an optional Proxy type parameter.
-func NewDialContext(p Proxy) DialContext {
+func NewDialContext() DialContext {
 	// return DialContext function
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		p := &Proxy{}
 		// discover which proxy to use
 		// assign defaults
 		if p.Headers == nil {
