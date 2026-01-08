@@ -55,17 +55,6 @@ func dialAndNegotiateHTTP(p Proxy, addr string, baseDial func() (net.Conn, error
 			// only test for first word in scheme
 			trimmed := strings.Split(s, " ")[0]
 			switch trimmed {
-			case "NTLM":
-				if !contains(p.AuthSchemeFilter, "NTLM") {
-					debugf("connect> Skipping NTLM due to AuthSchemeFilter")
-					continue
-				}
-				conn, err = dialNTLM(p, addr, baseDial)
-				if err != nil {
-					debugf("connect> NTLM authentication failed. Trying next available scheme.")
-					continue
-				}
-				return conn, err
 			case "Basic":
 				if !contains(p.AuthSchemeFilter, "Basic") {
 					debugf("connect> Skipping Basic due to AuthSchemeFilter")
@@ -77,26 +66,6 @@ func dialAndNegotiateHTTP(p Proxy, addr string, baseDial func() (net.Conn, error
 					continue
 				}
 				return conn, err
-
-			case "Negotiate":
-				if !contains(p.AuthSchemeFilter, "Negotiate") {
-					debugf("connect> Skipping Negotiate due to AuthSchemeFilter")
-					continue
-				}
-				conn, err = dialNegotiate(p, addr, baseDial)
-				if err != nil {
-					debugf("connect> Negotiate authentication failed. Trying next available scheme.")
-					continue
-				}
-				return conn, err
-
-			case "Kerberos":
-				debugf("connect> Kerberos not implemented yet. Trying next available scheme.")
-				continue
-
-			case "Digest":
-				debugf("connect> Digest not implemented yet. Trying next available scheme.")
-				continue
 
 			default:
 				debugf("connect> Unsupported proxy authentication scheme: '%s'. Trying next available scheme.", trimmed)

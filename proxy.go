@@ -31,15 +31,20 @@ type DialContext func(ctx context.Context, network, addr string) (net.Conn, erro
 // NewDialContext returns a DialContext that can be used in a variety of network types.
 // The function accepts an optional Proxy type parameter.
 func NewDialContext(p Proxy) DialContext {
-	// assign defaults
-	if p.Headers == nil {
-		p.Headers = &http.Header{}
-	}
-	if p.TargetURL == nil {
-		p.TargetURL, _ = url.Parse("https://www.google.com")
-	}
-	// if no provided Proxy.URL, infer from system settings
-	if p.URL == nil || p.URL.String() == "" {
+	// return DialContext function
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// discover which proxy to use
+		// assign defaults
+		if p.Headers == nil {
+			p.Headers = &http.Header{}
+		}
+
+		p.TargetURL, _ = url.Parse("http://" + addr)
+
+		if p.TargetURL == nil {
+			p.TargetURL, _ = url.Parse("https://www.google.com")
+		}
+
 		debugf("proxy> No proxy provided. Attempting to infer from system.")
 		systemProxy := ggp.NewProvider("").GetProxy(p.TargetURL.Scheme, p.TargetURL.String())
 		// if no Proxy.URL was provided and no URL could be determined from system,
@@ -47,7 +52,7 @@ func NewDialContext(p Proxy) DialContext {
 		if systemProxy == nil {
 			debugf("proxy> No proxy could be determined. Assuming a direct connection.")
 			d := net.Dialer{}
-			return d.DialContext
+			return d.DialContext(ctx, network, addr)
 		} else {
 			p.URL = systemProxy.URL()
 		}
@@ -57,18 +62,15 @@ func NewDialContext(p Proxy) DialContext {
 		}
 
 		debugf("proxy> Inferred proxy from system: %s", p.URL.String())
-	}
 
-	// assign user:pass if defined in URL
-	if p.URL.User.Username() != "" {
-		p.Username = p.URL.User.Username()
-	}
-	if pass, _ := p.URL.User.Password(); pass != "" {
-		p.Password = pass
-	}
+		// assign user:pass if defined in URL
+		if p.URL.User.Username() != "" {
+			p.Username = p.URL.User.Username()
+		}
+		if pass, _ := p.URL.User.Password(); pass != "" {
+			p.Password = pass
+		}
 
-	// return DialContext function
-	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		// first establish TLS if https
 		dialProxy := func() (net.Conn, error) {
 			dialer := &net.Dialer{}
@@ -77,6 +79,7 @@ func NewDialContext(p Proxy) DialContext {
 			}
 			return dialer.DialContext(ctx, network, p.URL.Host)
 		}
+
 		// return a net.Conn with a establish and authenticated proxy session
 		return getProxyConn(addr, p, dialProxy)
 	}
@@ -85,8 +88,6 @@ func NewDialContext(p Proxy) DialContext {
 func getProxyConn(addr string, p Proxy, baseDial func() (net.Conn, error)) (net.Conn, error) {
 	// inspect Proxy.URL.Scheme and return appropriate function
 	switch p.URL.Scheme {
-	case "socks4", "socks4a", "socks5", "socks5h", "socks":
-		return dialAndNegotiateSOCKS(p.URL, p.Username, p.Password, addr)
 	case "http", "https":
 		return dialAndNegotiateHTTP(p, addr, baseDial)
 	default:
