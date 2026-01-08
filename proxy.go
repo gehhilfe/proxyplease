@@ -33,7 +33,7 @@ type DialContext func(ctx context.Context, network, addr string) (net.Conn, erro
 func NewDialContext() DialContext {
 	// return DialContext function
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		p := &Proxy{}
+		p := Proxy{}
 		// discover which proxy to use
 		// assign defaults
 		if p.Headers == nil {
